@@ -1,0 +1,73 @@
+Title                   : 9 to 5, version 1.0
+Filename                : 9-to-5.WAD  (E1M6 replacement)
+Author                  : Jonathan Hensey-Altfeld
+Email Address           : jonathan@inference.com
+Misc. Author Info       : Age: 27, Occupation: Programmer
+
+Description             : Well, I was all set for another
+                          boooring day at the office, but
+                          something told me I was in for a
+                          little treat... a simple trip up
+                          the elevator leading to a glorious
+                          welcome...  Take THAT!! No more
+                          Mr YES MAN!!!
+
+Additional Credits to   : Raphael, Brendan et al; DEU authors
+================================================================
+
+* Play Information *
+
+Episode and Level #     : E1M6 (I like the Music)
+Single Player           : Yes (tested extensively)
+Cooperative 2-4 Player  : Yes (yes but not tested)
+Deathmatch 2-4 Player   : Yes (yes but not tested)
+Difficulty Settings     : Yes (implemented)
+New Sounds              : No
+New Graphics            : No
+New Music               : No
+Demos                   : None with this release
+
+* Construction *
+
+Base                    : New level from scratch
+Editor(s) used          : DEU 5.0, 5.1, & 5.2 GCC (bigtime!)
+Known Bugs              : I am aware of several small flaws,
+                          however these do not affect gameplay,
+                          IMHO.  The level has grown quite
+                          large; I have tried to be a perfec-
+                          tionist and have failed in several
+                          locations;  Also I'm really tired of
+                          continually improving it!  :)  I've
+                          decided to release this and perhaps
+                          create an update level in the near
+                          future.
+Disclaimer              : Inasmuch as I think I am aware of
+                          the inherent flaws in this release,
+                          I do think you will find this level
+                          to be impressively complete and visually
+                          stunning (toot toot).  I hope you enjoy
+                          playing through...  (fore!!!   <boom>).
+
+* Copyright / Permissions *
+
+Authors (MAY/may NOT) use this level as a base to build additional
+levels.  I take suggestions and advice very seriously; if you would
+like to see this PWAD modified, please send email to jonathan@infer-
+ence.com; I'll be sure to provide a prompt response & an update when
+available!
+
+(One of the following)
+
+You MAY distribute this WAD, provided you include this file, with
+no modifications.  You may distribute this file in any electronic
+format (BBS, Diskette, CD, etc) as long as you include this file 
+intact.
+
+* Where to get this WAD *
+
+FTP sites:  infant2.sphs.indiana.edu (others if people circulate it!)
+
+Other:      alt.binaries.doom newsgroups
+            direct email to me!
+
+Happy DOOMING!!!  It's not just another day at THIS office...  :)

@@ -1,0 +1,83 @@
+ ===========================================================================
+Advanced engine needed  : vanilla doom.exe
+Primary purpose         : Single Play
+===========================================================================
+Title                   : E1M11-11-11: Travel on the 11th dimension
+Filename                : e1m111111.wad
+Release date            : 
+Author                  : Walter "Daimon" Confalonieri
+Email Address           : daimon.italia983@gmail.com
+Other Files By Author   : A lot, some good, some bad.
+			  
+
+Misc. Author Info       : I love spamming stupid videos on zdoom forums.
+			  I build doom maps just for fun...
+
+Description             : a special speed map made for celebrating the
+			  11\11\11 day (actually day of Pocky in japan,
+			  Metal Day according to the Dio fan page on
+			  facebook and the birthday of the fictional
+			  anime charatcher Azusa Nagano), based upon
+			  the original game episodes style (but without E4)
+			  and also in the style reminds of original doom in
+			  some rooms, but mostly looks like a good map from 
+			  1994, only with better aligniment on textures and
+			  very few detailing cliches here and there. Enjoy.
+			  
+
+Additional Credits to   : ID, for the fancy game!
+                          My family
+			  People on Doomworld for recording FDAs and giving
+			  feedback on this weirdness
+			  
+===========================================================================
+* What is included *
+
+New levels              : 1
+Sounds                  : No
+Music                   : No
+Graphics                : No
+Dehacked/BEX Patch      : No
+Demos                   : Yes
+Other                   : No
+Other files required    : None
+
+
+* Play Information *
+
+Game                    : Doom
+Map #                   : E1M1
+Single Player           : Yes
+Cooperative 2-4 Player  : Yes
+Deathmatch 2-4 Player   : Yes
+Other game styles       : No
+Difficulty Settings     : Yes
+
+
+* Construction *
+
+Base                    : New from Scratch
+Build Time              : 3 hours
+			  
+Editor(s) used          : Doombuilder 2
+Known Bugs              : none. if you found any, mail me.
+May Not Run With...     : scissors?
+Tested Whit		: chocolate doom 2.05
+
+
+* Copyright / Permissions *
+
+Authors MAY use the contents of this file as a base for
+modification or reuse.  Permissions have been obtained from original 
+authors for any of their resources modified or included in this file.
+
+You MAY distribute this file, provided you include this text file, with
+NO modifications.  You may distribute this file in any electronic
+format (BBS, Diskette, CD, etc) as long as you include this file 
+intact.  I have received permission from the original authors of any
+modified or included content in this file to allow further distribution.
+
+
+* Where to get the file that this text file describes *
+
+The Usual: ftp://archives.3dgamers.com/pub/idgames/ and mirrors

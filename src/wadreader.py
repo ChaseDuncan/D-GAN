@@ -1,13 +1,16 @@
 import os, struct
 import numpy as np
 import numpy.linalg as la
+from flags import Flags
+#import scipy.spatial.distance as ssd
 
 import matplotlib
 import matplotlib.pyplot as plt
 
 from PIL import Image, ImageDraw
+import networkx as nx
 
-from flags import Flags
+from collections import defaultdict
 
 WAD_DIR = "../data/wad/"
 
@@ -67,9 +70,24 @@ def get_wad_index(wad_data):
 
     return lump_index
 
+out_edges = defaultdict(list)
+
 
 def get_linedefs(linedefs_data):
+    ''' Returns the linedefs of the wad which are represented by a tuple,
+    (source_vertex, sink_vertex, flags, one_sided). The source and sink vertices
+    are each doubles of coordinates in the plane and flags is a byte array
+    which stores various attributes of the linedef. one_sided is a boolean
+    which is true if the linedef has only one side.
+
+    Also returns a dictionary which maps each node to its incident edges.
+
+    @param: linedefs_data: byte array of linedefs data
+    @return: linedefs, outedges: a list of tuples with linedef data, dict
+    of incident edges for each node
+    '''
     num_sides = int(len(linedefs_data)/LINEDEF_SIZE)
+    print("Number of lines: ", num_sides)
     linedefs = []
 
     for i in range(num_sides):
@@ -80,8 +98,18 @@ def get_linedefs(linedefs_data):
                         linedefs_data[linedef_start+2:linedef_start+4])[DATA_IDX]
         flags = struct.unpack("<h",
                         linedefs_data[linedef_start+4:linedef_start+6])[DATA_IDX]
-        linedefs.append((vertex_start_idx, vertex_end_idx, flags))
-    return linedefs
+        back_sidedef = struct.unpack("<h",
+                        linedefs_data[linedef_start+12:linedef_start+14])[DATA_IDX]
+        one_sided = False
+        if back_sidedef < 0:
+            one_sided = True
+        linedefs.append((vertex_start_idx, vertex_end_idx, flags, one_sided))
+
+        out_edges[vertex_start_idx].append(vertex_end_idx)
+        #if not one_sided:
+        #    out_edges[vertex_end_idx].append(vertex_start_idx)
+
+    return linedefs, out_edges
 
 
 def get_vertex(vertex_string):
@@ -109,31 +137,6 @@ def get_vertexes(vertexes_string):
     return vertexes, max_coord
 
 
-def get_subsectors(subsectors_string):
-    prev_end = 0
-    subsector = 0
-    subsectors = {}
-    while prev_end < len(subsectors_string):
-        seg_ct = struct.unpack("<h",
-                            subsectors_string[prev_end:prev_end+2])[DATA_IDX]
-        segs = []
-        start = prev_end+2
-        end = prev_end+(2*seg_ct)
-
-        for i in range(start, end, 2):
-            seg_start = i
-            seg_end = seg_start+2
-            seg = struct.unpack("<h",
-                            subsectors_string[seg_start:seg_end])[DATA_IDX]
-            segs.append(seg)
-
-        subsectors[subsector] = segs
-        prev_end += seg_ct*2
-        subsector+=1
-
-    return subsectors
-
-
 def chunk_data(offsets, wad_data):
     ''' Extracts the data for a particular lump from full block of wad data.
 
@@ -145,14 +148,19 @@ def chunk_data(offsets, wad_data):
     data_end = data_start+offsets[1]
     return wad_data[data_start:data_end]
 
-def find_interior_point(vertex_start, vertex_end):
-    wall =  np.array([(vertex_end[0]-vertex_start[0]),
-           (vertex_end[1]-vertex_start[1])])
-    mid = np.array([(vertex_end[0]-vertex_start[0])/2,
-           (vertex_end[1]-vertex_start[1])/2])
-    orth_norm_wall = np.array([wall[1], -wall[0]])/la.norm(wall)
 
-    return orth_norm_wall+mid
+def draw_with_plt(vertexes, linedefs):
+    x_idxs, y_idxs = map(list, zip(*vertexes))
+    plt.scatter(x_idxs, y_idxs,s=.04)
+
+    for linedef in linedefs:
+        linedef_flags = linedef[2]
+        if (1 & linedef_flags) | (1 & linedef_flags >> 7):
+            vertex_start = vertexes[linedef[0]]
+            vertex_end = vertexes[linedef[1]]
+            xx, yy = map(list, zip(*[vertex_start, vertex_end]))
+            plt.plot(xx, yy)
+    plt.show()
 
 
 def decode_wad(wad):
@@ -160,11 +168,13 @@ def decode_wad(wad):
     wad_index = get_wad_index(wad_data)
 
     vertexes, max_coord = get_vertexes(chunk_data(wad_index['VERTEXES'], wad_data))
-    linedefs = get_linedefs(chunk_data(wad_index['LINEDEFS'], wad_data))
-    subsectors = get_subsectors(chunk_data(wad_index['SSECTORS'], wad_data))
+    linedefs, out_edges = get_linedefs(chunk_data(wad_index['LINEDEFS'], wad_data))
+
+    #incident_edges = find_incident_edges(out_edges, linedefs)
 
     BLACK = (0, 0, 0)
     WHITE = "#ffffff"
+    RED = "#ff0000"
     OFFSET = max_coord+100
     MyImage = Image.new('RGB', (2*OFFSET, 2*OFFSET), BLACK)
     offset_vertexes = []
@@ -172,50 +182,44 @@ def decode_wad(wad):
     for vertex in vertexes:
         # WAD files and Pillow do not share the same coordinate system
         offset_vertexes.append((OFFSET+vertex[0], OFFSET-vertex[1]))
-
+    G = nx.Graph()
+    G.add_nodes_from(offset_vertexes)
     MyDraw = ImageDraw.Draw(MyImage)
+
+    edges = []
 
     # first draw all the lines
     for linedef in linedefs:
         linedef_flags = linedef[2]
-        vertex_start = offset_vertexes[linedef[0]]
-        vertex_end = offset_vertexes[linedef[1]]
-
-        MyDraw.line([vertex_start, vertex_end], fill=WHITE)
-
-    #for linedef in linedefs:
-    #    linedef_flags = linedef[2]
-    #    if (1 & linedef_flags) | (1 & linedef_flags >> 7):
-    #        vertex_start = vertexes[linedef[0]]
-    #        vertex_end = vertexes[linedef[1]]
-    #        interior_point = find_interior_point(vertex_start, vertex_end)
-    #        offset_interior_point = (OFFSET+interior_point[0],
-    #                                 OFFSET-interior_point[1])
-    #        ImageDraw.floodfill(MyImage, offset_interior_point, (255,255,255,255))
-
-    for subsector, segs in subsectors.items():
-        for seg in segs:
-            print(seg)
-            linedef = linedefs[seg]
+        one_sided = linedef[3]
+        if (1 & linedef_flags) | (1 & linedef_flags >> 7) | True:
             vertex_start = offset_vertexes[linedef[0]]
             vertex_end = offset_vertexes[linedef[1]]
+            edges.append((vertex_start, vertex_end))
+            #if not one_sided:
+            #    edges.append((vertex_end, vertex_start))
             MyDraw.line([vertex_start, vertex_end], fill=WHITE)
 
+    G.add_edges_from(edges)
+    paths = set()
+    #print(len(list(nx.simple_cycles(G))))
+    for vertex in list(G.nodes):
+        try:
+            print("vertex: ", vertex)
+            path=nx.find_cycle(G,source=vertex,orientation='ignore')
+            path_list = []
+            for l in list(path):
+                path_list.extend([l[0], l[1]])
+            incident_vertices = [offset_vertexes[i] for i in
+                                 out_edges[offset_vertexes.index(vertex)]]
+            print(vertex,incident_vertices,str(path_list) )
+            MyDraw.polygon(path_list, fill=WHITE, outline=RED)
+        except Exception:
+            print("Exception for node: ", vertex)
+
     MyImage.show()
-    #x_idxs, y_idxs = map(list, zip(*vertexes))
-    #plt.scatter(x_idxs, y_idxs,s=.04)
-
-    #for linedef in linedefs:
-    #    linedef_flags = linedef[2]
-    #    if (1 & linedef_flags) | (1 & linedef_flags >> 7):
-    #        vertex_start = vertexes[linedef[0]]
-    #        vertex_end = vertexes[linedef[1]]
-    #        xx, yy = map(list, zip(*[vertex_start, vertex_end]))
-    #        plt.plot(xx, yy)
-    #plt.show()
-
+    #draw_with_plt(vertexes, linedefs)
     return wad_index
-
 
 if __name__=="__main__":
     print(decode_wad(get_wad_paths()[0]))
