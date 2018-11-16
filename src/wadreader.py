@@ -4,6 +4,7 @@ import numpy.linalg as la
 from flags import Flags
 #import scipy.spatial.distance as ssd
 
+
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -11,6 +12,8 @@ from PIL import Image, ImageDraw
 import networkx as nx
 
 from collections import defaultdict
+
+from node import get_angle
 
 WAD_DIR = "../data/wad/"
 
@@ -70,8 +73,6 @@ def get_wad_index(wad_data):
 
     return lump_index
 
-out_edges = defaultdict(list)
-
 
 def get_linedefs(linedefs_data):
     ''' Returns the linedefs of the wad which are represented by a tuple,
@@ -87,8 +88,8 @@ def get_linedefs(linedefs_data):
     of incident edges for each node
     '''
     num_sides = int(len(linedefs_data)/LINEDEF_SIZE)
-    print("Number of lines: ", num_sides)
     linedefs = []
+    adj_list = defaultdict(list)
 
     for i in range(num_sides):
         linedef_start = LINEDEF_SIZE*i
@@ -105,11 +106,10 @@ def get_linedefs(linedefs_data):
             one_sided = True
         linedefs.append((vertex_start_idx, vertex_end_idx, flags, one_sided))
 
-        out_edges[vertex_start_idx].append(vertex_end_idx)
-        #if not one_sided:
-        #    out_edges[vertex_end_idx].append(vertex_start_idx)
+        adj_list[vertex_start_idx].append(vertex_end_idx)
+        adj_list[vertex_end_idx].append(vertex_start_idx)
 
-    return linedefs, out_edges
+    return linedefs, adj_list
 
 
 def get_vertex(vertex_string):
@@ -148,78 +148,155 @@ def chunk_data(offsets, wad_data):
     data_end = data_start+offsets[1]
     return wad_data[data_start:data_end]
 
+def get_index(vertex, vertexes):
+    for i in range(len(vertexes)):
+        if np.array_equal(vertexes[i], vertex):
+            return i
+    print(vertex, vertexes)
+    return None
 
-def draw_with_plt(vertexes, linedefs):
-    x_idxs, y_idxs = map(list, zip(*vertexes))
-    plt.scatter(x_idxs, y_idxs,s=.04)
+def get_next_edge(cur_edge, ordered_incident_vertices):
+    tail_vertex = cur_edge[0]
+    head_vertex = cur_edge[1]
+    head_incident_vertices = ordered_incident_vertices[head_vertex]
+    next_hop = get_next_hop(tail_vertex, head_incident_vertices)
+    return (head_vertex, next_hop)
 
-    for linedef in linedefs:
-        linedef_flags = linedef[2]
-        if (1 & linedef_flags) | (1 & linedef_flags >> 7):
-            vertex_start = vertexes[linedef[0]]
-            vertex_end = vertexes[linedef[1]]
-            xx, yy = map(list, zip(*[vertex_start, vertex_end]))
-            plt.plot(xx, yy)
-    plt.show()
 
+def get_next_hop(tail_vertex, head_incident_edges):
+    tail_vertex_idx = get_index(tail_vertex, head_incident_edges)
+    next_hop_idx = (tail_vertex_idx + 1) % len(head_incident_edges)
+    return head_incident_edges[next_hop_idx]
+
+
+def find_covering_face(line, ordered_incident_vertices):
+    cur_edge = line
+    face = [cur_edge]
+    found_face = False
+    while not found_face:
+        next_edge = get_next_edge(cur_edge, ordered_incident_vertices)
+        if next_edge == line:
+            found_face = True
+        else:
+            face.append(next_edge)
+            cur_edge = next_edge
+    return face
+
+
+def init_ordered_incident_vertices(vertexes, linedefs, adj_list):
+    ordered_incident_edges = {}
+    for i, vertex in enumerate(vertexes):
+        edges = adj_list[get_index(vertex, vertexes)]
+        incident_vertices = [vertexes[j] for j in adj_list[i]]
+        if not incident_vertices:
+            continue
+        #cur_vec = np.array(vertex) - np.array(incident_vertices[0])
+        #cyc_vertex_list = [(0.0,incident_vertices[0])]
+        cyc_vertex_list = []
+        for i in range(0, len(incident_vertices)):
+            next_vec = np.array(vertex) - np.array(incident_vertices[i])
+            #angle = get_angle(cur_vec, next_vec)
+            angle = np.arctan2(next_vec[1], next_vec[0])
+            cyc_vertex_list.append((angle, incident_vertices[i]))
+            cur_vec = next_vec
+        #sorted(cyc_vertex_list, reverse=False)
+        cyc_vertex_list.sort()
+
+        ordered_incident_edges[vertex] = [x[1] for x in cyc_vertex_list]
+    return ordered_incident_edges
+
+def decode_wad_test():
+    vertexes = [(200,200), (200,300), (300,300), (300,200),(200,500),(300,500),
+               (0,600),(100,600),(0,900),(100,900)]
+    max_coord = 1000
+    linedefs =\
+    [(0,1,None,None),(1,2,None,None),(2,3,None,None),(3,0,None,None),
+    (1,4,None,None),(2,5,None,None),(4,6,None,None),(5,7,None,None),(6,7,None,None),
+    (8,9,None,None),(7,9,None,None),(8,9,None,None),(6,8,None,None)]
+    adj_list = {0:[1,3],1:[0,2,4],2:[1,3,5],3:[0,2],4:[1,6],5:[2,7],
+                6:[4,7,8],7:[5,6,9],8:[6,9],9:[7,8]}
+    ordered_incident_vertices = init_ordered_incident_vertices(vertexes, linedefs,
+                                                         adj_list)
+    linedefs_by_vertices = [((vertexes[line[0]], vertexes[line[1]]), line[2]) \
+                            for line in linedefs]
+    return vertexes, max_coord, linedefs_by_vertices, ordered_incident_vertices
 
 def decode_wad(wad):
     wad_data = get_wad_data(wad)
     wad_index = get_wad_index(wad_data)
 
     vertexes, max_coord = get_vertexes(chunk_data(wad_index['VERTEXES'], wad_data))
-    linedefs, out_edges = get_linedefs(chunk_data(wad_index['LINEDEFS'], wad_data))
+    linedefs, adj_list = get_linedefs(chunk_data(wad_index['LINEDEFS'], wad_data))
+    ordered_incident_vertices = init_ordered_incident_vertices(vertexes, linedefs,
+                                                         adj_list)
+    linedefs_by_vertices = [((vertexes[line[0]], vertexes[line[1]]), line[2]) \
+                            for line in linedefs]
+    return vertexes, max_coord, linedefs_by_vertices, ordered_incident_vertices
 
-    #incident_edges = find_incident_edges(out_edges, linedefs)
+BLACK = (0, 0, 0)
+WHITE = "#ffffff"
+RED = "#ff0000"
 
-    BLACK = (0, 0, 0)
-    WHITE = "#ffffff"
-    RED = "#ff0000"
-    OFFSET = max_coord+100
-    MyImage = Image.new('RGB', (2*OFFSET, 2*OFFSET), BLACK)
-    offset_vertexes = []
+def translate_edge_list(edge_list, offset):
+    translated_edges = [(offset+x[0],offset-x[1])\
+                        for x in edge_list]
+    return translated_edges
 
-    for vertex in vertexes:
-        # WAD files and Pillow do not share the same coordinate system
-        offset_vertexes.append((OFFSET+vertex[0], OFFSET-vertex[1]))
-    G = nx.Graph()
-    G.add_nodes_from(offset_vertexes)
+
+def main(wad_path):
+    vertexes, max_coord, linedefs, ordered_incident_vertices = \
+            decode_wad(wad_path)
+
+    #vertexes, max_coord, linedefs, ordered_incident_vertices = \
+    #        decode_wad_test()
+
+    MyImage = Image.new('RGB', (2*max_coord, 2*max_coord), BLACK)
     MyDraw = ImageDraw.Draw(MyImage)
+    faces = []
+    line_is_wall = {}
 
-    edges = []
-
-    # first draw all the lines
     for linedef in linedefs:
-        linedef_flags = linedef[2]
-        one_sided = linedef[3]
-        if (1 & linedef_flags) | (1 & linedef_flags >> 7) | True:
-            vertex_start = offset_vertexes[linedef[0]]
-            vertex_end = offset_vertexes[linedef[1]]
-            edges.append((vertex_start, vertex_end))
-            #if not one_sided:
-            #    edges.append((vertex_end, vertex_start))
-            MyDraw.line([vertex_start, vertex_end], fill=WHITE)
+        line = linedef[0]
+        linedef_flags = linedef[1]
+        if (1 & linedef_flags):# | (1 & linedef_flags >> 7):
+            line_is_wall[line] = True
+            line_is_wall[(line[1],line[0])] =True
+            faces.append(find_covering_face(line, ordered_incident_vertices))
+        else:
+            line_is_wall[line] = False
+            line_is_wall[(line[1],line[0])] = False
+            faces.append(find_covering_face((line[1],line[0]),
+                                            ordered_incident_vertices))
+            faces.append(find_covering_face(line, ordered_incident_vertices))
+    already_drawn = {}
+    out_of_bounds = []
 
-    G.add_edges_from(edges)
-    paths = set()
-    #print(len(list(nx.simple_cycles(G))))
-    for vertex in list(G.nodes):
-        try:
-            print("vertex: ", vertex)
-            path=nx.find_cycle(G,source=vertex,orientation='ignore')
-            path_list = []
-            for l in list(path):
-                path_list.extend([l[0], l[1]])
-            incident_vertices = [offset_vertexes[i] for i in
-                                 out_edges[offset_vertexes.index(vertex)]]
-            print(vertex,incident_vertices,str(path_list) )
-            MyDraw.polygon(path_list, fill=WHITE, outline=RED)
-        except Exception:
-            print("Exception for node: ", vertex)
+    for face in faces:
+        edge_list = []
+        hash_string = str(sorted(face))
+        if hash_string in already_drawn:
+            continue
+        already_drawn[hash_string] = True
+
+        white_space = False
+        for edge in face:
+            edge_list.append(edge[0])
+            if not line_is_wall[edge]:
+                white_space = True
+        translated_edge_list = translate_edge_list(edge_list, max_coord)
+
+        if not white_space:
+            out_of_bounds.append(translated_edge_list)
+            #MyDraw.polygon(translated_edge_list, fill=RED, outline=WHITE)
+        else:
+            MyDraw.polygon(translated_edge_list, fill=WHITE,outline=RED)
+            #pass
+
+    for nontraversable_polygon in out_of_bounds:
+        MyDraw.polygon(nontraversable_polygon, fill=RED, outline=WHITE)
 
     MyImage.show()
-    #draw_with_plt(vertexes, linedefs)
-    return wad_index
+
 
 if __name__=="__main__":
-    print(decode_wad(get_wad_paths()[0]))
+    main(get_wad_paths()[2])
